@@ -84,44 +84,81 @@ def render_chat_transcript():
 render_chat_transcript()
 
 # Question input (uses a session-state key so we can clear it after sending)
-user_input = st.text_area("Ask your dumb question human:", key="user_input_textarea")
+user_input = st.text_area("Say something silly:", key="user_input_textarea")
 
 uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
 
-# --- action ---
-if st.button("Ask"):
+
+def handle_ask():
+    user_input = st.session_state.user_input_textarea
+
     if user_input.strip() == "":
         st.warning("Type here crazy.")
+        return
+
+    if uploaded_file:
+        image_base64 = encode_image(uploaded_file)
+        user_msg = {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": user_input},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
+            ],
+        }
     else:
-        # 1) add the user's message to history
-        if uploaded_file:
-            image_base64 = encode_image(uploaded_file)
-            user_msg = {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_input},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
-                ],
-            }
-        else:
-            user_msg = {"role": "user", "content": user_input}
+        user_msg = {"role": "user", "content": user_input}
 
-        st.session_state.messages.append(user_msg)
-        st.session_state.has_user_asked = True  # now we should show the transcript
+    st.session_state.messages.append(user_msg)
+    st.session_state.has_user_asked = True
 
-        # 2) call model with full history (context preserved)
-        with st.spinner("damn that's a good one..."):
-            response = client.chat.completions.create(
-                model=effective_model,
-                messages=st.session_state.messages,
-            )
-            answer = response.choices[0].message.content
+    with st.spinner("damn that's a good one..."):
+        response = client.chat.completions.create(
+            model=effective_model,
+            messages=st.session_state.messages,
+        )
+        answer = response.choices[0].message.content
 
-        # 3) add assistant reply to history
-        st.session_state.messages.append({"role": "assistant", "content": answer})
+    st.session_state.messages.append({"role": "assistant", "content": answer})
 
-        # 4) clear the text box for the next turn
-        st.session_state["user_input_textarea"] = ""  # this clears the textarea on rerun
+    # clear input safely
+    st.session_state.user_input_textarea = ""
 
-        # 5) force rerender so the new messages appear immediately at the top transcript
-        st.rerun()
+
+
+# --- action ---
+# if st.button("Ask"):
+#     if user_input.strip() == "":
+#         st.warning("Type here crazy.")
+#     else:
+#         # 1) add the user's message to history
+#         if uploaded_file:
+#             image_base64 = encode_image(uploaded_file)
+#             user_msg = {
+#                 "role": "user",
+#                 "content": [
+#                     {"type": "text", "text": user_input},
+#                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
+#                 ],
+#             }
+#         else:
+#             user_msg = {"role": "user", "content": user_input}
+
+#         st.session_state.messages.append(user_msg)
+#         st.session_state.has_user_asked = True  # now we should show the transcript
+
+#         # 2) call model with full history (context preserved)
+#         with st.spinner("damn that's a good one..."):
+#             response = client.chat.completions.create(
+#                 model=effective_model,
+#                 messages=st.session_state.messages,
+#             )
+#             answer = response.choices[0].message.content
+
+#         # 3) add assistant reply to history
+#         st.session_state.messages.append({"role": "assistant", "content": answer})
+
+#         # 4) clear the text box for the next turn
+#         st.session_state["user_input_textarea"] = ""  # this clears the textarea on rerun
+
+#         # 5) force rerender so the new messages appear immediately at the top transcript
+#         st.rerun()
