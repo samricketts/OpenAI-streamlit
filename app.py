@@ -123,7 +123,7 @@ def handle_ask():
     # clear input safely
     st.session_state.user_input_textarea = ""
 
-
+st.button("Ask", on_click=handle_ask)
 
 # --- action ---
 # if st.button("Ask"):
