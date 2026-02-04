@@ -4,14 +4,13 @@ import base64
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.set_page_config(page_title="Super happy fun robot time")
-st.title("les do it")
-
+st.set_page_config(page_title="les do it")
+st.title("Super happy fun robot time")
 
 model_options = {
     "gpt-5-nano": "(Default, leave alone Tay) Fastest + cheapest GPT‑5-family option. Best for quick Q&A, simple rewrites, light summarization, and high‑volume requests where latency/cost matter more than deep reasoning.",
     "gpt-5-mini": "Balanced speed/quality for well‑defined tasks. Strong for structured writing, extraction, classification, short coding help, and consistent formatting with better reasoning than nano.",
-    "gpt-5": "Stronger reasoning and coding reliability. Better at multi‑step problems, debugging, longer context tasks, planning, and agentic-style workflows where accuracy matters.",
+    "gpt-5": "Stronger reasoning and coding reliability. Better at multi‑step problems, debugging, longer context tasks, planning, and agentic‑style workflows where accuracy matters.",
     "gpt-5.2": "Top-tier for coding + agentic tasks. Best for complex debugging, refactors, system design discussions, tool-oriented thinking, and high-stakes reasoning across domains."
 }
 
@@ -49,27 +48,44 @@ if "messages" not in st.session_state:
         {"role": "system", "content": "You are a helpful assistant."}
     ]
 
-# --- render transcript (scrollable) ---
-chat_box = st.container(height=450, border=True)
-with chat_box:
-    for m in st.session_state.messages:
-        if m["role"] == "system":
-            continue
+# Initialize flag: show transcript only after the first user question
+if "has_user_asked" not in st.session_state:
+    st.session_state.has_user_asked = False
 
-        if m["role"] == "user":
-            st.markdown("**You:**")
-            if isinstance(m["content"], list):
-                # multimodal user message
-                text_part = next((p.get("text") for p in m["content"] if p.get("type") == "text"), "")
-                st.write(text_part)
-            else:
+# Helper: render transcript only when has_user_asked is True
+def render_chat_transcript():
+    if not st.session_state.has_user_asked:
+        return  # don't render the chat box yet
+
+    chat_box = st.container(height=450, border=True)
+    with chat_box:
+        for m in st.session_state.messages:
+            if m["role"] == "system":
+                continue
+
+            if m["role"] == "user":
+                # Style user questions in blue
+                st.markdown("**You:**")
+                # Multimodal user message handling
+                if isinstance(m["content"], list):
+                    text_part = next((p.get("text") for p in m["content"] if p.get("type") == "text"), "")
+                else:
+                    text_part = m["content"]
+
+                st.markdown(
+                    f"<div style='color:#1E90FF; font-weight:500; white-space:pre-wrap;'>{text_part}</div>",
+                    unsafe_allow_html=True
+                )
+            elif m["role"] == "assistant":
+                st.markdown("**Robot:**")
                 st.write(m["content"])
 
-        elif m["role"] == "assistant":
-            st.markdown("**Robot:**")
-            st.write(m["content"])
+# Render the transcript (only visible after first question)
+render_chat_transcript()
 
-user_input = st.text_area("Ask your dumb question human:")
+# Question input (uses a session-state key so we can clear it after sending)
+user_input = st.text_area("Ask your dumb question human:", key="user_input_textarea")
+
 uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
 
 # --- action ---
@@ -91,6 +107,7 @@ if st.button("Ask"):
             user_msg = {"role": "user", "content": user_input}
 
         st.session_state.messages.append(user_msg)
+        st.session_state.has_user_asked = True  # now we should show the transcript
 
         # 2) call model with full history (context preserved)
         with st.spinner("damn that's a good one..."):
@@ -104,8 +121,7 @@ if st.button("Ask"):
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
         # 4) clear the text box for the next turn
-        st.session_state.user_input = ""
-        # (optional) keep uploaded image or clear it; Streamlit can't always clear uploader reliably
+        st.session_state["user_input_textarea"] = ""  # this clears the textarea on rerun
 
         # 5) force rerender so the new messages appear immediately at the top transcript
         st.rerun()
