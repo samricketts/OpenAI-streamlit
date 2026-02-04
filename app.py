@@ -7,6 +7,19 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="Super happy fun robot time")
 st.title("Super fun happy robot time")
 
+model_options = {
+    "gpt-4.1": "🧠 Best quality. Smartest reasoning. Best for complex questions + images.",
+    "gpt-4.1-mini": "⚡ Fast + cheaper. Great for most stuff, supports images.",
+    "gpt-4o": "🎯 Balanced multimodal. Good all-rounder.",
+    "gpt-4o-mini": "💸 Cheapest. Text-only. Use for simple questions."
+}
+
+selected_model = st.selectbox(
+    "Choose your robot brain:",
+    list(model_options.keys()),
+    format_func=lambda x: f"{x} ({model_options[x]})"
+)
+
 user_input = st.text_area("Ask your dumb question human:")
 uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
 
@@ -42,7 +55,7 @@ if st.button("Ask"):
                 messages.append({"role": "user", "content": user_input})
 
             response = client.chat.completions.create(
-                model="gpt-4.1-mini",  # vision-capable
+                model=selected_model
                 messages=messages
             )
 
