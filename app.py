@@ -5,7 +5,7 @@ import base64
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 st.set_page_config(page_title="Super happy fun robot time")
-st.title("Super fun happy robot time")
+st.title("les do it")
 
 
 model_options = {
@@ -31,7 +31,7 @@ specialized_model_options = {
 }
 
 selected_specialized_model = st.selectbox(
-    "Choose a specialized robot (optional.. Tay, do not click here):",
+    "Choose a specialized robot (optional.. Tay don't touch):",
     ["(None — use chat model above)"] + list(specialized_model_options.keys()),
     index=0,
     format_func=lambda x: x if x.startswith("(None") else f"{x} {specialized_model_options[x]}"
@@ -40,10 +40,8 @@ selected_specialized_model = st.selectbox(
 # If a specialized model is chosen, it overrides the chat model selection.
 effective_model = selected_model if selected_specialized_model.startswith("(None") else selected_specialized_model
 
-user_input = st.text_area("Ask your dumb question human:")
-uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
-
 def encode_image(file):
+    file.seek(0)  # important when reusing uploaded file
     return base64.b64encode(file.read()).decode("utf-8")
 
 if "messages" not in st.session_state:
@@ -51,7 +49,7 @@ if "messages" not in st.session_state:
         {"role": "system", "content": "You are a helpful assistant."}
     ]
 
-# A single scrollable box to display the conversation chronologically
+# --- render transcript (scrollable) ---
 chat_box = st.container(height=450, border=True)
 with chat_box:
     for m in st.session_state.messages:
@@ -60,54 +58,54 @@ with chat_box:
 
         if m["role"] == "user":
             st.markdown("**You:**")
-            # Handle text-only vs text+image content formats
             if isinstance(m["content"], list):
+                # multimodal user message
                 text_part = next((p.get("text") for p in m["content"] if p.get("type") == "text"), "")
                 st.write(text_part)
             else:
                 st.write(m["content"])
 
-        if m["role"] == "assistant":
+        elif m["role"] == "assistant":
             st.markdown("**Robot:**")
             st.write(m["content"])
 
+user_input = st.text_area("Ask your dumb question human:")
+uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
+
+# --- action ---
 if st.button("Ask"):
     if user_input.strip() == "":
         st.warning("Type here crazy.")
     else:
+        # 1) add the user's message to history
+        if uploaded_file:
+            image_base64 = encode_image(uploaded_file)
+            user_msg = {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_input},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
+                ],
+            }
+        else:
+            user_msg = {"role": "user", "content": user_input}
+
+        st.session_state.messages.append(user_msg)
+
+        # 2) call model with full history (context preserved)
         with st.spinner("damn that's a good one..."):
-
-            messages = [
-                {"role": "system", "content": "You are a helpful assistant."}
-            ]
-
-            # If image exists, include it
-            if uploaded_file:
-                image_base64 = encode_image(uploaded_file)
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": user_input},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
-                            }
-                        }
-                    ]
-                })
-            else:
-                messages.append({"role": "user", "content": user_input})
-
             response = client.chat.completions.create(
                 model=effective_model,
-                messages=messages
+                messages=st.session_state.messages,
             )
-
             answer = response.choices[0].message.content
 
-            if uploaded_file:
-                st.image(uploaded_file, caption="The image you showed the robot")
+        # 3) add assistant reply to history
+        st.session_state.messages.append({"role": "assistant", "content": answer})
 
-            st.markdown("### Answer")
-            st.write(answer)
+        # 4) clear the text box for the next turn
+        st.session_state.user_input = ""
+        # (optional) keep uploaded image or clear it; Streamlit can't always clear uploader reliably
+
+        # 5) force rerender so the new messages appear immediately at the top transcript
+        st.rerun()
