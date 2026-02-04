@@ -7,22 +7,38 @@ client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="Super happy fun robot time")
 st.title("Super fun happy robot time")
 
+
 model_options = {
-    "gpt-5.2": "Best model for coding and agentic tasks across industries.",
-    "gpt-5-mini": "A faster, cost effecient version of GPT-5 for well defined tasks.",
-    "gpt-5-nano": "Fastest, most cost effective version of GPT-5",
-    "gpt-5": "Previous intelligent reasoning model for coding and agentic tasks",
-    "gpt-4.1": "Best quality. Smartest reasoning. Best for complex questions + images.",
-    "gpt-4.1-mini": "Fast + cheaper. Great for most stuff, supports images.",
-    "gpt-4o": "Balanced multimodal. Good all-rounder.",
-    "gpt-4o-mini": "Cheapest. Text-only. Use for simple questions."
+    "gpt-5-nano": "(Default) Fastest + cheapest GPT‑5-family option. Best for quick Q&A, simple rewrites, light summarization, and high‑volume requests where latency/cost matter more than deep reasoning.",
+    "gpt-5-mini": "Balanced speed/quality for well‑defined tasks. Strong for structured writing, extraction, classification, short coding help, and consistent formatting with better reasoning than nano.",
+    "gpt-5": "Stronger reasoning and coding reliability. Better at multi‑step problems, debugging, longer context tasks, planning, and agentic-style workflows where accuracy matters.",
+    "gpt-5.2": "Top-tier for coding + agentic tasks. Best for complex debugging, refactors, system design discussions, tool-oriented thinking, and high-stakes reasoning across domains."
 }
 
 selected_model = st.selectbox(
     "Choose your robot brain:",
     list(model_options.keys()),
-    format_func=lambda x: f"{x} ({model_options[x]})"
+    index=0,  # 👈 default = first item = gpt-5-nano
+    format_func=lambda x: f"{x} {model_options[x]}"
 )
+
+# --- Specialized models (separate dropdown) ---
+specialized_model_options = {
+    "sora-2-pro": "High-end generative video model. Use it when you want to create or transform video content from text prompts and/or visual references (cinematic motion, scene continuity, stylized shots). Not ideal for standard chat Q&A.",
+    "o3-deep-research": "Research-focused reasoning model for deep investigations. Best for: synthesizing large/complex topics, building structured research plans, comparing sources/claims, and producing long, well-organized analytical writeups.",
+    "o4-mini-deep-research": "Faster/cheaper deep-research variant. Good for: solid research summaries, outlines, and literature-style syntheses when you want the ‘research brain’ but with lower latency/cost than the largest option.",
+    "gpt-image-1.5": "Image generation + editing model. Use it to create images from text, edit/transform images, generate variations, and do image-centric creative tasks. Not meant for pure text-only chat accuracy compared to GPT‑5 chat models."
+}
+
+selected_specialized_model = st.selectbox(
+    "Choose a specialized robot (optional):",
+    ["(None — use chat model above)"] + list(specialized_model_options.keys()),
+    index=0,
+    format_func=lambda x: x if x.startswith("(None") else f"{x} {specialized_model_options[x]}"
+)
+
+# If a specialized model is chosen, it overrides the chat model selection.
+effective_model = selected_model if selected_specialized_model.startswith("(None") else selected_specialized_model
 
 user_input = st.text_area("Ask your dumb question human:")
 uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
@@ -59,7 +75,7 @@ if st.button("Ask"):
                 messages.append({"role": "user", "content": user_input})
 
             response = client.chat.completions.create(
-                model=selected_model,
+                model=effective_model,
                 messages=messages
             )
 
