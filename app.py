@@ -9,7 +9,7 @@ st.title("Super fun happy robot time")
 
 
 model_options = {
-    "gpt-5-nano": "(Default) Fastest + cheapest GPT‑5-family option. Best for quick Q&A, simple rewrites, light summarization, and high‑volume requests where latency/cost matter more than deep reasoning.",
+    "gpt-5-nano": "(Default, leave alone Tay) Fastest + cheapest GPT‑5-family option. Best for quick Q&A, simple rewrites, light summarization, and high‑volume requests where latency/cost matter more than deep reasoning.",
     "gpt-5-mini": "Balanced speed/quality for well‑defined tasks. Strong for structured writing, extraction, classification, short coding help, and consistent formatting with better reasoning than nano.",
     "gpt-5": "Stronger reasoning and coding reliability. Better at multi‑step problems, debugging, longer context tasks, planning, and agentic-style workflows where accuracy matters.",
     "gpt-5.2": "Top-tier for coding + agentic tasks. Best for complex debugging, refactors, system design discussions, tool-oriented thinking, and high-stakes reasoning across domains."
@@ -31,7 +31,7 @@ specialized_model_options = {
 }
 
 selected_specialized_model = st.selectbox(
-    "Choose a specialized robot (optional):",
+    "Choose a specialized robot (optional.. Tay, do not click here):",
     ["(None — use chat model above)"] + list(specialized_model_options.keys()),
     index=0,
     format_func=lambda x: x if x.startswith("(None") else f"{x} {specialized_model_options[x]}"
@@ -45,6 +45,31 @@ uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
 
 def encode_image(file):
     return base64.b64encode(file.read()).decode("utf-8")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful assistant."}
+    ]
+
+# A single scrollable box to display the conversation chronologically
+chat_box = st.container(height=450, border=True)
+with chat_box:
+    for m in st.session_state.messages:
+        if m["role"] == "system":
+            continue
+
+        if m["role"] == "user":
+            st.markdown("**You:**")
+            # Handle text-only vs text+image content formats
+            if isinstance(m["content"], list):
+                text_part = next((p.get("text") for p in m["content"] if p.get("type") == "text"), "")
+                st.write(text_part)
+            else:
+                st.write(m["content"])
+
+        if m["role"] == "assistant":
+            st.markdown("**Robot:**")
+            st.write(m["content"])
 
 if st.button("Ask"):
     if user_input.strip() == "":
