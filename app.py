@@ -8,14 +8,14 @@ st.set_page_config(page_title="Super happy fun robot time")
 st.title("Super fun happy robot time")
 
 model_options = {
-    "gpt-5.2": "🧠 Best model for coding and agentic tasks across industries.",
-    "gpt-5-mini": "🧠 A faster, cost effecient version of GPT-5 fpr well defined tasks.",
-    "gpt-5-nano": "🧠 Fastest, most cost effective version of GPT-5",
-    "gpt-5": "🧠 Previous intelligent reasoning model for coding and agentic tasks",
-    "gpt-4.1": "🧠 Best quality. Smartest reasoning. Best for complex questions + images.",
-    "gpt-4.1-mini": "⚡ Fast + cheaper. Great for most stuff, supports images.",
-    "gpt-4o": "🎯 Balanced multimodal. Good all-rounder.",
-    "gpt-4o-mini": "💸 Cheapest. Text-only. Use for simple questions."
+    "gpt-5.2": "Best model for coding and agentic tasks across industries.",
+    "gpt-5-mini": "A faster, cost effecient version of GPT-5 for well defined tasks.",
+    "gpt-5-nano": "Fastest, most cost effective version of GPT-5",
+    "gpt-5": "Previous intelligent reasoning model for coding and agentic tasks",
+    "gpt-4.1": "Best quality. Smartest reasoning. Best for complex questions + images.",
+    "gpt-4.1-mini": "Fast + cheaper. Great for most stuff, supports images.",
+    "gpt-4o": "Balanced multimodal. Good all-rounder.",
+    "gpt-4o-mini": "Cheapest. Text-only. Use for simple questions."
 }
 
 selected_model = st.selectbox(
