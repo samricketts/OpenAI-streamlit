@@ -1,6 +1,7 @@
 import streamlit as st
 from openai import OpenAI
 import base64
+import traceback
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
@@ -17,7 +18,7 @@ model_options = {
 selected_model = st.selectbox(
     "Choose your robot brain:",
     list(model_options.keys()),
-    index=0,  # 👈 default = first item = gpt-5-nano
+    index=0,  # default = gpt-5-nano
     format_func=lambda x: f"{x} {model_options[x]}"
 )
 
@@ -30,7 +31,7 @@ specialized_model_options = {
 }
 
 selected_specialized_model = st.selectbox(
-    "Choose a specialized robot (optional.. Tay don't touch):",
+    "Choose a specialized model (optional.. Tay don't touch):",
     ["(None — use chat model above)"] + list(specialized_model_options.keys()),
     index=0,
     format_func=lambda x: x if x.startswith("(None") else f"{x} {specialized_model_options[x]}"
@@ -111,54 +112,31 @@ def handle_ask():
     st.session_state.messages.append(user_msg)
     st.session_state.has_user_asked = True
 
-    with st.spinner("damn that's a good one..."):
-        response = client.chat.completions.create(
-            model=effective_model,
-            messages=st.session_state.messages,
-        )
-        answer = response.choices[0].message.content
 
-    st.session_state.messages.append({"role": "assistant", "content": answer})
+
+    with st.spinner("damn that's a good one..."):
+        try:
+            response = client.chat.completions.create(
+                model=effective_model,
+                messages=st.session_state.messages,
+            )
+            answer = response.choices[0].message.content
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+
+        except Exception as e:
+            st.error("OpenAI request failed. Full error below:")
+            st.code(traceback.format_exc())   # shows the real stack trace in the UI
+            return
+    # with st.spinner("damn that's a good one..."):
+    #     response = client.chat.completions.create(
+    #         model=effective_model,
+    #         messages=st.session_state.messages,
+    #     )
+    #     answer = response.choices[0].message.content
+
+    # st.session_state.messages.append({"role": "assistant", "content": answer})
 
     # clear input safely
     st.session_state.user_input_textarea = ""
 
 st.button("Ask", on_click=handle_ask)
-
-# --- action ---
-# if st.button("Ask"):
-#     if user_input.strip() == "":
-#         st.warning("Type here crazy.")
-#     else:
-#         # 1) add the user's message to history
-#         if uploaded_file:
-#             image_base64 = encode_image(uploaded_file)
-#             user_msg = {
-#                 "role": "user",
-#                 "content": [
-#                     {"type": "text", "text": user_input},
-#                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
-#                 ],
-#             }
-#         else:
-#             user_msg = {"role": "user", "content": user_input}
-
-#         st.session_state.messages.append(user_msg)
-#         st.session_state.has_user_asked = True  # now we should show the transcript
-
-#         # 2) call model with full history (context preserved)
-#         with st.spinner("damn that's a good one..."):
-#             response = client.chat.completions.create(
-#                 model=effective_model,
-#                 messages=st.session_state.messages,
-#             )
-#             answer = response.choices[0].message.content
-
-#         # 3) add assistant reply to history
-#         st.session_state.messages.append({"role": "assistant", "content": answer})
-
-#         # 4) clear the text box for the next turn
-#         st.session_state["user_input_textarea"] = ""  # this clears the textarea on rerun
-
-#         # 5) force rerender so the new messages appear immediately at the top transcript
-#         st.rerun()
