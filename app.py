@@ -1,6 +1,5 @@
 import streamlit as st
 from openai import OpenAI
-import base64
 import traceback
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -18,7 +17,7 @@ model_options = {
 selected_model = st.selectbox(
     "Choose your robot brain:",
     list(model_options.keys()),
-    index=0,  # default = gpt-5-nano
+    index=0,
     format_func=lambda x: f"{x} {model_options[x]}"
 )
 
@@ -40,23 +39,20 @@ selected_specialized_model = st.selectbox(
 # If a specialized model is chosen, it overrides the chat model selection.
 effective_model = selected_model if selected_specialized_model.startswith("(None") else selected_specialized_model
 
-def encode_image(file):
-    file.seek(0)  # important when reusing uploaded file
-    return base64.b64encode(file.read()).decode("utf-8")
-
 if "messages" not in st.session_state:
+    # We'll store transcript in a simple role/content format for UI rendering,
+    # and separately build Responses API input when sending.
     st.session_state.messages = [
         {"role": "system", "content": "You are a helpful assistant."}
     ]
 
-# Initialize flag: show transcript only after the first user question
 if "has_user_asked" not in st.session_state:
     st.session_state.has_user_asked = False
 
-# Helper: render transcript only when has_user_asked is True
+
 def render_chat_transcript():
     if not st.session_state.has_user_asked:
-        return  # don't render the chat box yet
+        return
 
     chat_box = st.container(height=450, border=True)
     with chat_box:
@@ -65,78 +61,101 @@ def render_chat_transcript():
                 continue
 
             if m["role"] == "user":
-                # Style user questions in blue
                 st.markdown("**You:**")
-                # Multimodal user message handling
-                if isinstance(m["content"], list):
-                    text_part = next((p.get("text") for p in m["content"] if p.get("type") == "text"), "")
-                else:
-                    text_part = m["content"]
-
                 st.markdown(
-                    f"<div style='color:#1E90FF; font-weight:500; white-space:pre-wrap;'>{text_part}</div>",
+                    f"<div style='color:#1E90FF; font-weight:500; white-space:pre-wrap;'>{m['content']}</div>",
                     unsafe_allow_html=True
                 )
             elif m["role"] == "assistant":
                 st.markdown("**Robot:**")
                 st.write(m["content"])
 
-# Render the transcript (only visible after first question)
+
 render_chat_transcript()
 
-# Question input (uses a session-state key so we can clear it after sending)
 user_input = st.text_area("Say something silly:", key="user_input_textarea")
 
-uploaded_file = st.file_uploader("Upload pixels", type=["png", "jpg", "jpeg"])
+# Accept ANY file type
+uploaded_file = st.file_uploader("Upload a file (any type)", type=None)
 
 
 def handle_ask():
-    user_input = st.session_state.user_input_textarea
-
-    if user_input.strip() == "":
+    user_text = (st.session_state.user_input_textarea or "").strip()
+    if user_text == "":
         st.warning("Type here crazy.")
         return
 
+    # Add user turn to transcript (for UI)
     if uploaded_file:
-        image_base64 = encode_image(uploaded_file)
-        user_msg = {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_input},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
-            ],
-        }
+        user_transcript_text = f"{user_text}\n\n[Attached file: {uploaded_file.name}]"
     else:
-        user_msg = {"role": "user", "content": user_input}
+        user_transcript_text = user_text
 
-    st.session_state.messages.append(user_msg)
+    st.session_state.messages.append({"role": "user", "content": user_transcript_text})
     st.session_state.has_user_asked = True
-
-
 
     with st.spinner("damn that's a good one..."):
         try:
-            response = client.chat.completions.create(
+            # 1) If a file is uploaded, upload it to OpenAI Files first
+            file_id = None
+            if uploaded_file:
+                uploaded_file.seek(0)
+                created = client.files.create(
+                    file=uploaded_file,
+                    purpose="assistants"
+                )
+                file_id = created.id
+
+            # 2) Build Responses API input from our stored transcript
+            #    System message goes in "instructions"
+            system_msg = next((m["content"] for m in st.session_state.messages if m["role"] == "system"), "")
+
+            # Convert transcript to Responses API "input" turns
+            input_turns = []
+            for m in st.session_state.messages:
+                if m["role"] == "system":
+                    continue
+                if m["role"] == "user":
+                    input_turns.append({
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": m["content"]}
+                        ]
+                    })
+                elif m["role"] == "assistant":
+                    input_turns.append({
+                        "role": "assistant",
+                        "content": [
+                            {"type": "output_text", "text": m["content"]}
+                        ]
+                    })
+
+            # 3) If there is an uploaded file for THIS turn, attach it to the LAST user message
+            if file_id:
+                # Append the file to the most recent user turn content
+                for i in range(len(input_turns) - 1, -1, -1):
+                    if input_turns[i]["role"] == "user":
+                        input_turns[i]["content"].append({"type": "input_file", "file_id": file_id})
+                        break
+
+            # 4) Call the Responses API
+            resp = client.responses.create(
                 model=effective_model,
-                messages=st.session_state.messages,
+                instructions=system_msg,
+                input=input_turns,
             )
-            answer = response.choices[0].message.content
+
+            # 5) Get plain text output
+            answer = resp.output_text
+
             st.session_state.messages.append({"role": "assistant", "content": answer})
 
-        except Exception as e:
+        except Exception:
             st.error("OpenAI request failed. Full error below:")
-            st.code(traceback.format_exc())   # shows the real stack trace in the UI
+            st.code(traceback.format_exc())
             return
-    # with st.spinner("damn that's a good one..."):
-    #     response = client.chat.completions.create(
-    #         model=effective_model,
-    #         messages=st.session_state.messages,
-    #     )
-    #     answer = response.choices[0].message.content
 
-    # st.session_state.messages.append({"role": "assistant", "content": answer})
-
-    # clear input safely
     st.session_state.user_input_textarea = ""
+
 
 st.button("Ask", on_click=handle_ask)
