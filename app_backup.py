@@ -1,72 +1,8 @@
 import streamlit as st
 from openai import OpenAI
 import traceback
-import os
-import json
-import uuid
-from datetime import datetime
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
-CHATS_FILE = "chats.json"
-
-def _load_all_chats() -> dict:
-    """Return {chat_id: chat_obj} from disk."""
-    if not os.path.exists(CHATS_FILE):
-        return {}
-    try:
-        with open(CHATS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def _save_all_chats(chats: dict) -> None:
-    with open(CHATS_FILE, "w", encoding="utf-8") as f:
-        json.dump(chats, f, ensure_ascii=False, indent=2)
-
-def _new_chat(title: str = "New chat") -> dict:
-    now = datetime.utcnow().isoformat()
-    return {
-        "id": str(uuid.uuid4()),
-        "title": title,
-        "created_at": now,
-        "updated_at": now,
-        "messages": [{"role": "system", "content": "You are a helpful assistant."}],
-    }
-
-def _touch(chat: dict) -> None:
-    chat["updated_at"] = datetime.utcnow().isoformat()
-
-def save_current_chat():
-    """Persist the currently loaded st.session_state.messages into CHATS_FILE."""
-    if "current_chat_id" not in st.session_state:
-        return
-    chats = _load_all_chats()
-    cid = st.session_state.current_chat_id
-    if cid not in chats:
-        # create a shell chat record if missing
-        chats[cid] = _new_chat()
-        chats[cid]["id"] = cid
-
-    chats[cid]["messages"] = st.session_state.messages
-    _touch(chats[cid])
-    _save_all_chats(chats)
-
-def load_chat_into_session(chat_id: str):
-    chats = _load_all_chats()
-    if chat_id not in chats:
-        return
-    st.session_state.current_chat_id = chat_id
-    st.session_state.messages = chats[chat_id]["messages"]
-    # show transcript if there is anything beyond system message
-    st.session_state.has_user_asked = any(m["role"] != "system" for m in st.session_state.messages)
-
-def delete_chat(chat_id: str):
-    chats = _load_all_chats()
-    if chat_id in chats:
-        del chats[chat_id]
-        _save_all_chats(chats)
-
 
 st.set_page_config(page_title="les do it")
 st.title("Super happy fun robot time")
@@ -103,106 +39,12 @@ selected_specialized_model = st.selectbox(
 # If a specialized model is chosen, it overrides the chat model selection.
 effective_model = selected_model if selected_specialized_model.startswith("(None") else selected_specialized_model
 
-# ---------------------------
-# Sidebar: chat list / save / load
-# ---------------------------
-with st.sidebar:
-    st.header("Chats")
-
-    chats = _load_all_chats()
-
-    # Sort by most recently updated
-    chat_items = sorted(
-        chats.values(),
-        key=lambda c: c.get("updated_at", c.get("created_at", "")),
-        reverse=True
-    )
-
-    # New chat button
-    if st.button("➕ New chat", use_container_width=True):
-        newc = _new_chat("New chat")
-        chats[newc["id"]] = newc
-        _save_all_chats(chats)
-        load_chat_into_session(newc["id"])
-        st.rerun()
-
-    # Dropdown to select a chat
-    def _label(c):
-        return c.get("title", "Untitled")
-
-    if chat_items:
-        id_by_label = {f"{_label(c)}  ({c['id'][:8]})": c["id"] for c in chat_items}
-        labels = list(id_by_label.keys())
-
-        # pick current label if possible
-        current_label = None
-        for lab, cid in id_by_label.items():
-            if cid == st.session_state.current_chat_id:
-                current_label = lab
-                break
-
-        selected_label = st.selectbox(
-            "Select a chat",
-            labels,
-            index=labels.index(current_label) if current_label in labels else 0
-        )
-        selected_chat_id = id_by_label[selected_label]
-
-        if selected_chat_id != st.session_state.current_chat_id:
-            load_chat_into_session(selected_chat_id)
-            st.rerun()
-
-        # Rename current chat
-        current_chat = chats.get(st.session_state.current_chat_id)
-        new_title = st.text_input("Rename chat", value=(current_chat.get("title") if current_chat else ""))
-        if st.button("💾 Save title", use_container_width=True):
-            chats = _load_all_chats()
-            if st.session_state.current_chat_id in chats:
-                chats[st.session_state.current_chat_id]["title"] = new_title.strip() or "Untitled"
-                _touch(chats[st.session_state.current_chat_id])
-                _save_all_chats(chats)
-            st.rerun()
-
-        # Save / delete
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("Save now", use_container_width=True):
-                save_current_chat()
-        with c2:
-            if st.button("Delete", use_container_width=True):
-                to_delete = st.session_state.current_chat_id
-                delete_chat(to_delete)
-
-                # load another chat or make a new one
-                chats = _load_all_chats()
-                if chats:
-                    newest = sorted(chats.values(), key=lambda c: c.get("updated_at",""), reverse=True)[0]
-                    load_chat_into_session(newest["id"])
-                else:
-                    newc = _new_chat("New chat")
-                    chats[newc["id"]] = newc
-                    _save_all_chats(chats)
-                    load_chat_into_session(newc["id"])
-                st.rerun()
-    else:
-        st.caption("No chats yet.")
-
-# ---------------------------
-# Initialize / load a default chat
-# ---------------------------
-if "current_chat_id" not in st.session_state:
-    # On first run, create a new chat and persist it
-    chat = _new_chat("New chat")
-    chats = _load_all_chats()
-    chats[chat["id"]] = chat
-    _save_all_chats(chats)
-
-    st.session_state.current_chat_id = chat["id"]
-    st.session_state.messages = chat["messages"]
-
 if "messages" not in st.session_state:
-    # safety fallback
-    st.session_state.messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    # We'll store transcript in a simple role/content format for UI rendering,
+    # and separately build Responses API input when sending.
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful assistant."}
+    ]
 
 if "has_user_asked" not in st.session_state:
     st.session_state.has_user_asked = False
@@ -251,7 +93,6 @@ def handle_ask():
 
     st.session_state.messages.append({"role": "user", "content": user_transcript_text})
     st.session_state.has_user_asked = True
-    save_current_chat()
 
     with st.spinner("damn that's a good one..."):
         try:
@@ -308,7 +149,6 @@ def handle_ask():
             answer = resp.output_text
 
             st.session_state.messages.append({"role": "assistant", "content": answer})
-            save_current_chat()
 
         except Exception:
             st.error("OpenAI request failed. Full error below:")
