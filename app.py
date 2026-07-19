@@ -5,6 +5,9 @@ import os
 import json
 import uuid
 from datetime import datetime
+import base64
+import mimetypes
+
 
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
@@ -66,6 +69,13 @@ def delete_chat(chat_id: str):
     if chat_id in chats:
         del chats[chat_id]
         _save_all_chats(chats)
+
+def file_to_data_url(uploaded_file):
+    uploaded_file.seek(0)
+    data = uploaded_file.read()
+    mime = uploaded_file.type or mimetypes.guess_type(uploaded_file.name)[0] or "application/octet-stream"
+    b64 = base64.b64encode(data).decode("utf-8")
+    return f"data:{mime};base64,{b64}", mime
 
 
 st.set_page_config(page_title="les do it")
@@ -235,6 +245,10 @@ user_input = st.text_area("Say something silly:", key="user_input_textarea")
 
 # Accept ANY file type
 uploaded_file = st.file_uploader("Upload a file (any type)", type=None)
+if uploaded_file and (uploaded_file.type or "").startswith("image/"):
+    effective_model_for_call = "gpt-5"   # pick your preferred vision-capable chat model
+else:
+    effective_model_for_call = effective_model
 
 
 def handle_ask():
@@ -256,14 +270,20 @@ def handle_ask():
     with st.spinner("damn that's a good one..."):
         try:
             # 1) If a file is uploaded, upload it to OpenAI Files first
-            file_id = None
+            
+            attachment = None  # will become either {"type":"input_image", ...} or {"type":"input_file", ...}
+
             if uploaded_file:
-                uploaded_file.seek(0)
-                created = client.files.create(
-                    file=uploaded_file,
-                    purpose="assistants"
-                )
-                file_id = created.id
+                mime = uploaded_file.type or mimetypes.guess_type(uploaded_file.name)[0] or ""
+
+                if mime.startswith("image/"):
+                    data_url, _ = file_to_data_url(uploaded_file)
+                    attachment = {"type": "input_image", "image_url": data_url}
+                else:
+                    # for supported doc-like formats: upload as a File, then attach as input_file
+                    uploaded_file.seek(0)
+                    created = client.files.create(file=uploaded_file, purpose="assistants")
+                    attachment = {"type": "input_file", "file_id": created.id}
 
             # 2) Build Responses API input from our stored transcript
             #    System message goes in "instructions"
@@ -289,17 +309,16 @@ def handle_ask():
                         ]
                     })
 
-            # 3) If there is an uploaded file for THIS turn, attach it to the LAST user message
-            if file_id:
-                # Append the file to the most recent user turn content
+            # 3) Attach image/file to the last user message
+            if attachment:
                 for i in range(len(input_turns) - 1, -1, -1):
                     if input_turns[i]["role"] == "user":
-                        input_turns[i]["content"].append({"type": "input_file", "file_id": file_id})
+                        input_turns[i]["content"].append(attachment)
                         break
 
             # 4) Call the Responses API
             resp = client.responses.create(
-                model=effective_model,
+                model=effective_model_for_call,
                 instructions=system_msg,
                 input=input_turns,
             )
