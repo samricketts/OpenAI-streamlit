@@ -91,7 +91,9 @@ model_options = {
     "gpt-5.4-pro"
     "gpt-5.5"
     "gpt-5.5"
-    "gpt-5.5-luna"
+    "gpt-5.6-luna"
+    "gpt-5.6-terra"
+    "gpt-5.6-sol"
 }
 
 selected_model = st.selectbox(
@@ -106,7 +108,7 @@ specialized_model_options = {
     "sora-2-pro": "High-end generative video model. Use it when you want to create or transform video content from text prompts and/or visual references (cinematic motion, scene continuity, stylized shots). Not ideal for standard chat Q&A.",
     "o3-deep-research": "Research-focused reasoning model for deep investigations. Best for: synthesizing large/complex topics, building structured research plans, comparing sources/claims, and producing long, well-organized analytical writeups.",
     "o4-mini-deep-research": "Faster/cheaper deep-research variant. Good for: solid research summaries, outlines, and literature-style syntheses when you want the ‘research brain’ but with lower latency/cost than the largest option.",
-    "gpt-image-1.5": "Image generation + editing model. Use it to create images from text, edit/transform images, generate variations, and do image-centric creative tasks. Not meant for pure text-only chat accuracy compared to GPT‑5 chat models."
+    "gpt-image-2": "Image generation + editing model. Use it to create images from text, edit/transform images, generate variations, and do image-centric creative tasks. Not meant for pure text-only chat accuracy compared to GPT‑5 chat models."
 }
 
 selected_specialized_model = st.selectbox(
