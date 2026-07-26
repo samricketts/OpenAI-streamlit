@@ -85,15 +85,15 @@ model_options = {
     "gpt-5-nano": "(Default, leave alone Tay) Fastest + cheapest GPT‑5-family option. Best for quick Q&A, simple rewrites, light summarization, and high‑volume requests where latency/cost matter more than deep reasoning.",
     "gpt-5-mini": "Balanced speed/quality for well‑defined tasks. Strong for structured writing, extraction, classification, short coding help, and consistent formatting with better reasoning than nano.",
     "gpt-5": "Stronger reasoning and coding reliability. Better at multi‑step problems, debugging, longer context tasks, planning, and agentic‑style workflows where accuracy matters.",
-    "gpt-5.2": "Top-tier for coding + agentic tasks. Best for complex debugging, refactors, system design discussions, tool-oriented thinking, and high-stakes reasoning across domains."
-    "gpt-5.4-mini"
-    "gpt-5.4"
-    "gpt-5.4-pro"
-    "gpt-5.5"
-    "gpt-5.5"
-    "gpt-5.6-luna"
-    "gpt-5.6-terra"
-    "gpt-5.6-sol"
+    "gpt-5.2": "Top-tier for coding + agentic tasks. Best for complex debugging, refactors, system design discussions, tool-oriented thinking, and high-stakes reasoning across domains.",
+    "gpt-5.4-mini" :"",
+    "gpt-5.4":"",
+    "gpt-5.4-pro":"",
+    "gpt-5.5":"",
+    "gpt-5.5":"",
+    "gpt-5.6-luna":"",
+    "gpt-5.6-terra":"",
+    "gpt-5.6-sol":""
 }
 
 selected_model = st.selectbox(
