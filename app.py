@@ -86,6 +86,12 @@ model_options = {
     "gpt-5-mini": "Balanced speed/quality for well‑defined tasks. Strong for structured writing, extraction, classification, short coding help, and consistent formatting with better reasoning than nano.",
     "gpt-5": "Stronger reasoning and coding reliability. Better at multi‑step problems, debugging, longer context tasks, planning, and agentic‑style workflows where accuracy matters.",
     "gpt-5.2": "Top-tier for coding + agentic tasks. Best for complex debugging, refactors, system design discussions, tool-oriented thinking, and high-stakes reasoning across domains."
+    "gpt-5.4-mini"
+    "gpt-5.4"
+    "gpt-5.4-pro"
+    "gpt-5.5"
+    "gpt-5.5"
+    "gpt-5.5-luna"
 }
 
 selected_model = st.selectbox(
